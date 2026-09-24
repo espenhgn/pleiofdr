@@ -6,9 +6,11 @@
 * [Data downloads](#data-downloads)
 * [Data preparation](#data-preparation)
 * [Run pleioFDR](#run-pleiofdr)
+* [Configuration reference](#configuration-reference)
 * [pleioFDR results](#pleiofdr-results)
 * [FUMA-defined loci](#fuma-defined-loci)
-* [Octave support](#octave-support)
+* [Development and testing](#development-and-testing)
+* [MATLAB version](#matlab-version)
 
 ## Introduction
 
@@ -22,24 +24,29 @@ For an introduction about pleioFDR, please see
 
 The pleioFDR software may not be used in medical applications.
 
+pleioFDR is a Python package (Python 3.13 or newer). It was ported from the original MATLAB
+implementation, and gives the same results, see [MATLAB version](#matlab-version).
+
 ## Quick Start
 
 To install and run pleioFDR on a small example, constrained to chromosome 21:
 ```
 git clone https://github.com/precimed/pleiofdr && cd pleiofdr
+pip install .
 wget https://precimed.s3-eu-west-1.amazonaws.com/pleiofdr/pleioFDR_demo_data.tar.gz
 tar -xzvf pleioFDR_demo_data.tar.gz
-matlab -nodisplay -nosplash < runme.m
+pleiofdr --config config.txt
 ```
 
 To install and run pleioFDR using full example:
 ```
 git clone https://github.com/precimed/pleiofdr && cd pleiofdr
+pip install .
 wget https://precimed.s3-eu-west-1.amazonaws.com/pleiofdr/ref9545380_1kgPhase3eur_LDr2p1.mat
 wget https://precimed.s3-eu-west-1.amazonaws.com/pleiofdr/CTG_COG_2018.mat
 wget https://precimed.s3-eu-west-1.amazonaws.com/pleiofdr/SSGAC_EDU_2016.mat
 cp config_default.txt config.txt
-matlab -nodisplay -nosplash < runme.m
+pleiofdr --config config.txt
 ```
 
 For the description of the data, see [here](https://precimed.s3-eu-west-1.amazonaws.com/pleiofdr/about.txt).
@@ -48,17 +55,30 @@ For the results, inspect the ``results`` folder.
 ## Install pleioFDR
 
 Prerequisites:
- - matlab (tested with versions >= 2015)
- - workstation with at least 16GB of RAM
- 
-The following step by step instruction assumes you are using Linux, however the same can be done in Windows or Mac with minimal modifications.
+ - Python 3.13 or newer
+ - for the full reference, a workstation with at least 16GB of RAM
+   (the LD matrix alone takes about 12GB in memory)
 
-Download pleioFDR software by going to https://github.com/precimed/pleiofdr in your favorite internet browser, use "Clone or download" button , and "Download zip" do get the latest code.
-  
-Alternatively, you may get the code by cloning git repository from command line:
+Get the code, either with the "Code" → "Download ZIP" button on https://github.com/precimed/pleiofdr, or from the command line:
   ```
   git clone https://github.com/precimed/pleiofdr && cd pleiofdr
   ```
+
+Install it into a virtual environment with [uv](https://docs.astral.sh/uv/):
+  ```
+  uv sync          # creates .venv with pleiofdr and its dependencies
+  uv run pleiofdr --help
+  ```
+or with pip:
+  ```
+  python3 -m venv .venv && source .venv/bin/activate
+  pip install .
+  pleiofdr --help
+  ```
+
+The dependencies are numpy, scipy, pandas, matplotlib, h5py and numba; they are installed
+automatically. The optional extra `pip install .[ref]` adds `intervaltree`, used by some scripts
+in `ref4pleioFDR/toolkit`.
 
 ## Data downloads
 
@@ -83,14 +103,21 @@ Further details are available in [about.txt](https://precimed.s3-eu-west-1.amazo
 
 Those at NORMENT with access to NIRD can also download these data from ``SUMSTAT/misc/9545380_ref`` and ``SUMSTAT/TMP/mat_9545380``.
 
+The reference and trait files are MATLAB ``.mat`` files; pleioFDR reads both the older format
+(v5/v7) and the HDF5-based v7.3 format (used by ``ref9545380_1kgPhase3eur_LDr2p1.mat``).
+
 ## Data preparation
 
 Here we explain how to convert raw summary statistics to pleioFDR format.
 Feel free to skip this step if you would like to try pleioFDR on ``CTG_COG_2018.mat`` and ``SSGAC_EDU_2016.mat``,
 or if you downloaded input data from the internal NORMENT ``SUMSTATS`` inventory.
 
-Prerequisites:
- - python >= 2.7 (but < 3) with numpy, scipy and pandas libraries
+A trait file is a ``.mat`` file with a ``logpvec`` variable (-log10 p-values, one per reference
+variant, in reference order) and a ``zvec`` variable (z-scores). The first variables whose names
+start with ``logp`` and ``z`` are used. If z-scores are unavailable, see ``dummy_zscore`` below.
+
+The conversion uses the separate [python_convert](https://github.com/precimed/python_convert) repository;
+check its README for the Python version it requires.
 
 Downloads:
  - Download code from https://github.com/precimed/python_convert, either via web browser, or ``git clone https://github.com/precimed/python_convert``.
@@ -131,65 +158,105 @@ and prepare input files for cond/conj fdr analysis (mat):
   * set ``randprune_n=500`` instead of the default ``randprune_n=20``
   You may also want to change ``traitfile1`` and ``traitfiles`` options.
   
-  Start matlab.
-  
-  Change current folder to the root of ``pleiofdr`` repository (i.e. a folder containing ``pleiotropy_analysis.m``).
-  
-  Execute ``runme`` command, which should trigger pleiofdr analysis.
+  Then run
+  ```
+  pleiofdr --config config.txt
+  ```
+  (``python -m pleiofdr --config config.txt`` works too; without ``--config``, ``config.txt`` in the
+  current folder is used.)
 
-  To run pleioFDR from console:
-    ```
-    matlab -nodisplay -nosplash < runme.m
-    ```
-    
+  Random pruning draws random numbers; add ``--seed 123`` to make a run reproducible. To reuse a
+  fixed set of prune indices (for example exported from an earlier run), save them as a boolean
+  ``nsnp × randprune_n`` matrix in a ``.mat`` file and set ``randprune_file`` in the config.
+
+  To run many trait pairs, see ``run_batch.py`` (fills ``config_template.txt`` for each pair) and
+  ``MultipleRunUtility.sh``.
+
+## Configuration reference
+
+  Configuration files contain ``key=value`` lines; lines starting with ``#`` are comments. Values
+  use MATLAB-style literals: ``true``/``false``, numbers, matrices such as ``[6 25119106 33854733; 8 7200000 12500000]``
+  and lists of strings such as ``{'a.mat', 'b.mat'}``. Configuration files written for the MATLAB version work unchanged.
+
+  | Key | Default | Meaning |
+  |---|---|---|
+  | ``reffile`` | ``ref9545380_1kgPhase3eur_LDr2p1.mat`` | reference with ``LDmat``, ``chrnumvec``, ``posvec``, ``mafvec``, ``is_intergenic``, ``is_ambiguous`` |
+  | ``refinfo`` | (empty) | optional tab-separated file with ``SNP``, ``A1``, ``A2`` columns (e.g. ``9545380.ref``), used in the output tables |
+  | ``traitfolder`` | ``../example_data_for_pleiotropy`` | folder with the trait files; if empty, trait file names must be full paths |
+  | ``traitfile1``, ``traitname1`` | ``PGC2_SCZ.mat``, ``SCZ`` | primary trait |
+  | ``traitfiles``, ``traitnames`` | ``{'COG_charge.mat'}``, ``{'COGNITION'}`` | trait(s) to condition on |
+  | ``outputdir`` | ``test`` | output folder |
+  | ``stattype`` | ``conjfdr`` | ``condfdr`` (conditional) or ``conjfdr`` (conjunctional) |
+  | ``fdrthresh`` | ``0.05`` | FDR threshold; 0.01 is recommended for condfdr and 0.05 for conjfdr |
+  | ``pthresh`` | ``1`` | threshold on Fisher's combined p-value for the loci table (1 disables it) |
+  | ``randprune``, ``randprune_n`` | ``true``, ``20`` | random LD pruning and its number of iterations |
+  | ``randprune_repeats`` | ``default`` | resampling of SNPs picked in many iterations: ``default``, ``maxout`` or ``none`` |
+  | ``randprune_file`` | (empty) | ``.mat`` file with fixed prune indices |
+  | ``reset_pruneidx`` | ``true`` | regenerate prune indices for each run |
+  | ``exclude_chr_pos`` | ``[6 25119106 33854733]`` | regions ``[CHR BP_from BP_to]`` (hg19) excluded from the FDR fit, one per row |
+  | ``exclude_from_discovery`` | ``false`` | also exclude those regions from discovery |
+  | ``exclude_ambiguous_snps`` | ``false`` | exclude A/T and C/G SNPs from fit and discovery |
+  | ``mafthresh`` | ``0.005`` | exclude SNPs with MAF at or below this (or undefined); ``nan`` keeps them (not recommended) |
+  | ``perform_gc``, ``use_standard_gc``, ``randprune_gc`` | ``true``, ``false``, ``false`` | genomic control; standard (median) or in-house (more conservative) estimator; estimate after pruning |
+  | ``dummy_zscore`` | ``false`` | compute (positive) z-scores from p-values when trait files lack them |
+  | ``onscreen`` | ``false`` | show figures on screen |
+  | ``manh_plot`` | ``true`` | draw the Manhattan plot |
+  | ``manh_colorlist``, ``manh_legend`` | see ``config_default.txt`` | Manhattan plot colours (scaled by 0.8) and legend position |
+  | ``manh_fontsize_genenames``, ``manh_yspace``, ``manh_ymargin`` | ``12``, ``0.75``, ``0.25`` | accepted for compatibility; gene names are not drawn |
+  | ``mlibrary``, ``exit_matlab_upon_completion`` | | accepted for compatibility and ignored |
+
+  ``config_default.txt`` documents each option in more detail.
+
 ## pleioFDR results
 
   Results are placed in an output folder, defined in ``config.txt`` file. By default it is named ``results``.
   
   Results contain:
-   * table with LD-independent significant loci
-   * table with all analyzed variants and their cond/conj FDR values
-   * conditional qq plots and enrichment plots
-   * Manhattan plot (by default only .fig file, so you need to open it with
-     matlab and save in another format separately)
+   * table with LD-independent significant loci (``*_loci.csv``)
+   * table with all analyzed variants and their cond/conj FDR values (``*_all.csv``);
+     for conjfdr also tables with z-scores (``*_zscore_*.csv``)
+   * conditional qq plots, true discovery rate (tdr) plots, enrichment plots and the FDR lookup table (PNG and SVG)
+   * Manhattan plot (PNG, and SVG for conjfdr)
    * log file
-   * ``results.mat`` file containing condFDR or conjFDR values for all SNPs
+   * ``result.mat`` file containing condFDR or conjFDR values for all SNPs, readable with
+     ``scipy.io.loadmat`` or MATLAB
 
 ## FUMA-defined loci
 
   Loci tables generated in the step above use custom non-standard logic to clump results based on LD structure.
   You may want to re-generate loci using ``sumstats.py clump`` script, which implements the same logic as in FUMA.
-  To do so,  convert ``results.mat`` into a text file (for example using ``scipy.io.loadmat``
-  and ``pandas.DataFrame.to_csv``), and then perform ``sumstats.py clump``.
-  At this step you may use ``ref9545380_bfile.tar.gz`` as a reference to preform clumping.
+  To do so, convert ``result.mat`` into a text file, and then perform ``sumstats.py clump``.
+  At this step you may use ``ref9545380_bfile.tar.gz`` as a reference to preform clumping. For example:
+  ```python
+  import pandas as pd
+  import scipy.io
 
-## Octave support
-
-NB! Octave support is experimental and not officially supported.
-
-install additional packages:
-  ```
-  octave --no-gui <(echo "pkg install -forge io statistics")
-  octave --no-gui <(echo "pkg install -forge nan")
+  res = scipy.io.loadmat("results/result.mat")
+  ref = pd.read_csv("9545380.ref", sep="\t")
+  ref["FDR"] = res["fdrmat"][:, 0]
+  ref.dropna(subset=["FDR"]).to_csv("results/fdr.csv", sep="\t", index=False)
   ```
 
-install  gammainc function:
-  
-  ```
-  wget http://savannah.gnu.org/bugs/download.php?file_id=37342 -O gammainc.m
-  wget http://savannah.gnu.org/bugs/download.php?file_id=37341 -O __gammainc_lentz.cc
-  mkoctfile __gammainc_lentz.cc 
-  ```
+  Clumped results can then be combined with FUMA annotations and summary statistics using
+  ``python -m pleiofdr.fuma.combine`` and ``python -m pleiofdr.fuma.novelty``, see [fuma/readme.md](fuma/readme.md).
 
-run:
+## Development and testing
 
   ```
-  octave --no-gui runme.m
+  uv sync --group dev        # or: pip install -e . pytest ruff
+  uv run pytest
+  uv run ruff check src tests
   ```
 
-#### Octave notes:
-* last tested with octave version 4.0.2
-* *.mat files need to be saved with "-v7" max:
-  ```
-  save('ref9545380_1kgPhase3eur_LDr2p1.mat', '-v7') 
-  ```
+  Most tests need the demo data (``tar -xzvf pleioFDR_demo_data.tar.gz`` in the repository root) and are
+  skipped without it. ``tests/test_golden.py`` runs the whole analysis on the demo data and compares every
+  intermediate result, the lookup tables, the QQ/enrichment matrices and the CSV tables with the output of
+  the original MATLAB code. The reference outputs in ``tests/fixtures`` were produced by
+  ``tests/fixtures/make_golden.m``; see [MIGRATION_NOTES.md](MIGRATION_NOTES.md) for how the port maps to the
+  MATLAB code and where it intentionally differs.
+
+## MATLAB version
+
+  The original MATLAB/Octave implementation is kept in [legacy_matlab/](legacy_matlab/) for reference.
+  It is no longer maintained. The Python version reproduces its results; the differences are listed in
+  [MIGRATION_NOTES.md](MIGRATION_NOTES.md) (for example, figures are saved as PNG/SVG rather than ``.fig``).
