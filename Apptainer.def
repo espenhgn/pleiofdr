@@ -1,5 +1,5 @@
 # pleioFDR Apptainer image (x86_64). Build on a machine with network access:
-#   apptainer build pleiofdr.sif Apptainer.def
+#   apptainer build pleiofdr.sif Apptainer.def      (or: apptainer build --fakeroot ...)
 # then copy pleiofdr.sif to the airgapped system. See `apptainer run-help pleiofdr.sif`.
 
 Bootstrap: docker

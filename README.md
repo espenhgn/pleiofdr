@@ -125,7 +125,7 @@ docker run --rm --network none -u $(id -u):$(id -g) \
 ```
 
 **Building.** ``docker build --platform linux/amd64 -t pleiofdr .`` or ``apptainer build pleiofdr.sif Apptainer.def``
-(both need network access while building). Both install exactly the dependency versions in ``uv.lock`` on the
+(add ``--fakeroot`` to build without root; both need network access while building). Both install exactly the dependency versions in ``uv.lock`` on the
 same pinned ``python:3.13-slim-bookworm`` base image.
 
 ## Data downloads
