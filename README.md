@@ -1,3 +1,5 @@
+[![tests](https://github.com/precimed/pleiofdr/actions/workflows/tests.yml/badge.svg)](https://github.com/precimed/pleiofdr/actions/workflows/tests.yml)
+
 ## Contents
 
 * [Introduction](#introduction)
@@ -249,11 +251,16 @@ and prepare input files for cond/conj fdr analysis (mat):
   ```
 
   Most tests need the demo data (``tar -xzvf pleioFDR_demo_data.tar.gz`` in the repository root) and are
-  skipped without it. ``tests/test_golden.py`` runs the whole analysis on the demo data and compares every
+  skipped without it (set ``PLEIOFDR_REQUIRE_DEMO=1`` to make missing demo data an error instead).
+  ``tests/test_golden.py`` runs the whole analysis on the demo data and compares every
   intermediate result, the lookup tables, the QQ/enrichment matrices and the CSV tables with the output of
   the original MATLAB code. The reference outputs in ``tests/fixtures`` were produced by
   ``tests/fixtures/make_golden.m``; see [MIGRATION_NOTES.md](MIGRATION_NOTES.md) for how the port maps to the
   MATLAB code and where it intentionally differs.
+
+  GitHub Actions ([.github/workflows/tests.yml](.github/workflows/tests.yml)) runs ruff and the full test
+  suite, with the demo data downloaded, on every push and pull request, on Linux and macOS with
+  Python 3.13 and 3.14.
 
 ## MATLAB version
 
