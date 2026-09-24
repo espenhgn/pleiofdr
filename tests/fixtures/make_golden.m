@@ -16,7 +16,7 @@
 % run() changes into this script's folder; work from the repository root instead
 golden_root = fileparts(fileparts(fileparts(mfilename('fullpath'))));
 cd(golden_root);
-addpath(golden_root);
+addpath(fullfile(golden_root, 'legacy_matlab'));
 golden_dir = fullfile('tests', 'fixtures');
 
 golden_base = {
