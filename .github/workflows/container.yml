@@ -52,11 +52,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Self-test without network on a read-only root filesystem
+      - name: Self-test without network, as other users and on a read-only root filesystem
         run: |
-          run="docker run --rm --network none --read-only --tmpfs /tmp -u $(id -u):$(id -g)"
+          run="docker run --rm --network none"
           $run pleiofdr:ci --version
-          $run --entrypoint python pleiofdr:ci -m pleiofdr.selftest
+          # host user id (HOME=/ is not writable), as in the README
+          $run -u "$(id -u):$(id -g)" --entrypoint python pleiofdr:ci -m pleiofdr.selftest
+          # read-only root with a writable /tmp
+          $run -u 12345:12345 --read-only --tmpfs /tmp --entrypoint python pleiofdr:ci -m pleiofdr.selftest
+          # read-only root, no /tmp; only the bind-mounted data folder is writable
+          mkdir -m 777 "$RUNNER_TEMP/rw"
+          $run -u 12345:12345 --read-only -v "$RUNNER_TEMP/rw:/data" --entrypoint python pleiofdr:ci \
+            -m pleiofdr.selftest --keep /data/selftest
 
       - uses: astral-sh/setup-uv@v10.2.0
         with:
@@ -73,9 +80,9 @@ jobs:
       - name: Demo run offline, compared with MATLAB
         run: |
           mkdir demo && tar -xzf pleioFDR_demo_data.tar.gz -C demo
+          # exactly the README command: host user id, data bind-mounted, no network
           tests/container/demo_parity.sh demo -- \
-            docker run --rm --network none --read-only --tmpfs /tmp -u "$(id -u):$(id -g)" \
-              -v "$PWD/demo:/data" pleiofdr:ci
+            docker run --rm --network none -u "$(id -u):$(id -g)" -v "$PWD/demo:/data" pleiofdr:ci
 
       - name: Save image for release
         if: startsWith(github.ref, 'refs/tags/v')

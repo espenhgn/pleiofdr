@@ -25,17 +25,15 @@ From: python@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a
     cd /opt/pleiofdr/build
     uv sync --locked --no-dev --no-editable
     python -m pip uninstall -y --root-user-action=ignore uv
-    rm -rf /opt/pleiofdr/build /tmp/uv-cache /root/.cache
     /opt/venv/bin/python -c "import pleiofdr.analysis, pleiofdr.fuma.combine, pleiofdr.fuma.novelty"
+    rm -rf /opt/pleiofdr/build /tmp/uv-cache /tmp/pleiofdr-* /root/.cache /root/.config
 
 %environment
     export PATH=/opt/venv/bin:$PATH
     export MPLBACKEND=Agg
     export PYTHONNOUSERSITE=1
     export PYTHONDONTWRITEBYTECODE=1
-    # numba (cache=True) and matplotlib need writable, per-user cache folders; the image is read-only
-    export NUMBA_CACHE_DIR="/tmp/pleiofdr-numba-$(id -u)"
-    export MPLCONFIGDIR="/tmp/pleiofdr-matplotlib-$(id -u)"
+    # numba/matplotlib cache folders are chosen at run time by pleiofdr (pleiofdr/_caches.py)
 
 %runscript
     exec pleiofdr "$@"

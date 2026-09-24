@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 from numba import njit
 
+from ._caches import NUMBA_CACHE
 from .ldmatrix import LDMatrix
 from .options import Options
 from .pruning import fast_prune
@@ -46,7 +47,7 @@ def independent_loci(
     return imat, imat2, logfdrmat
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def _locus_walk(ivec: np.ndarray, iivec: np.ndarray, indptr: np.ndarray, indices: np.ndarray):
     n = iivec.size
     locusnumvec = np.full(n, np.nan)

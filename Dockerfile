@@ -33,14 +33,14 @@ LABEL org.opencontainers.image.title="pleiofdr" \
       org.opencontainers.image.version="${VERSION}"
 COPY --from=builder /opt/venv /opt/venv
 COPY config_default.txt config_template.txt /opt/pleiofdr/share/
-# numba (cache=True) and matplotlib need writable cache folders; the image itself may be read-only
+# numba and matplotlib cache folders are chosen at run time by pleiofdr (pleiofdr/_caches.py),
+# so the image works for any user id and with a read-only root filesystem
 ENV PATH=/opt/venv/bin:$PATH \
     MPLBACKEND=Agg \
     PYTHONNOUSERSITE=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    NUMBA_CACHE_DIR=/tmp/pleiofdr-numba \
-    MPLCONFIGDIR=/tmp/pleiofdr-matplotlib
+    PYTHONDONTWRITEBYTECODE=1
 RUN python -c "import pleiofdr.analysis, pleiofdr.fuma.combine, pleiofdr.fuma.novelty" \
+    && rm -rf /tmp/* /root/.cache /root/.config \
     && useradd --create-home --uid 1000 pleiofdr
 USER pleiofdr
 WORKDIR /data

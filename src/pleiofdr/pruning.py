@@ -5,10 +5,11 @@ from __future__ import annotations
 import numpy as np
 from numba import njit
 
+from ._caches import NUMBA_CACHE
 from .ldmatrix import LDMatrix
 
 
-@njit(cache=True)
+@njit(cache=NUMBA_CACHE)
 def _prune_mask(order: np.ndarray, indptr: np.ndarray, indices: np.ndarray, n: int) -> np.ndarray:
     prunevec = np.zeros(n, dtype=np.bool_)
     for k in range(order.size):
