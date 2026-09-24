@@ -5,6 +5,7 @@
 * [Introduction](#introduction)
 * [Quick Start](#quick-start)
 * [Install pleioFDR](#install-pleiofdr)
+* [Containers (incl. airgapped systems)](#containers-incl-airgapped-systems)
 * [Data downloads](#data-downloads)
 * [Data preparation](#data-preparation)
 * [Run pleioFDR](#run-pleiofdr)
@@ -81,6 +82,51 @@ or with pip:
 The dependencies are numpy, scipy, pandas, matplotlib, h5py and numba; they are installed
 automatically. The optional extra `pip install .[ref]` adds `intervaltree`, used by some scripts
 in `ref4pleioFDR/toolkit`.
+
+## Containers (incl. airgapped systems)
+
+pleioFDR is also distributed as a Docker image and as an Apptainer (Singularity) image for x86_64
+Linux. Both contain Python and every dependency, so they run without network access; reference and
+trait data stay outside the image and are bind-mounted at run time. Tagged releases publish
+``ghcr.io/precimed/pleiofdr:X.Y.Z`` and attach ``pleiofdr-X.Y.Z.sif`` (with a ``.sha256`` checksum) and
+``pleiofdr-X.Y.Z-docker.tar.gz`` to the [GitHub release](https://github.com/precimed/pleiofdr/releases).
+
+**Getting the image into an airgapped environment.** On a machine with internet access, download
+``pleiofdr-X.Y.Z.sif`` and ``pleiofdr-X.Y.Z.sif.sha256`` from the release page (or build the image
+yourself with ``apptainer build pleiofdr.sif Apptainer.def``), check it with
+``sha256sum -c pleiofdr-X.Y.Z.sif.sha256``, and copy the ``.sif`` file in through your usual file import
+route, together with the reference data (``ref9545380_1kgPhase3eur_LDr2p1.mat``, and ``9545380.ref`` if used).
+
+**Running with Apptainer.** Paths in ``config.txt`` are paths *inside* the container, so bind the data
+folders to fixed locations:
+```
+# a config template to edit
+apptainer exec pleiofdr.sif cp /opt/pleiofdr/share/config_default.txt config.txt
+#   reffile=/ref/ref9545380_1kgPhase3eur_LDr2p1.mat
+#   traitfolder=/data/traits
+#   outputdir=/data/results
+
+apptainer run --containall -B /path/to/refdata:/ref -B $PWD:/data --pwd /data \
+    pleiofdr.sif --config config.txt
+
+apptainer test pleiofdr.sif                              # self-test on synthetic data, no data needed
+apptainer run --app fuma-combine pleiofdr.sif --help     # FUMA helpers, see fuma/readme.md
+apptainer run --app fuma-novelty pleiofdr.sif --help
+apptainer run-help pleiofdr.sif
+```
+On a SLURM cluster, put the ``apptainer run`` line in the job script and request enough memory
+(about 16GB for the full reference).
+
+**Running with Docker or Podman.** Load the image from the release tarball (``docker load < pleiofdr-X.Y.Z-docker.tar.gz``)
+or pull ``ghcr.io/precimed/pleiofdr:X.Y.Z``, then
+```
+docker run --rm --network none -u $(id -u):$(id -g) \
+    -v /path/to/refdata:/ref -v $PWD:/data ghcr.io/precimed/pleiofdr:X.Y.Z --config config.txt
+```
+
+**Building.** ``docker build --platform linux/amd64 -t pleiofdr .`` or ``apptainer build pleiofdr.sif Apptainer.def``
+(both need network access while building). Both install exactly the dependency versions in ``uv.lock`` on the
+same pinned ``python:3.13-slim-bookworm`` base image.
 
 ## Data downloads
 
@@ -261,6 +307,10 @@ and prepare input files for cond/conj fdr analysis (mat):
   GitHub Actions ([.github/workflows/tests.yml](.github/workflows/tests.yml)) runs ruff and the full test
   suite, with the demo data downloaded, on every push and pull request, on Linux and macOS with
   Python 3.13 and 3.14.
+  [.github/workflows/container.yml](.github/workflows/container.yml) builds both container images, runs the
+  self-test without network access, and runs the demo inside each container offline, requiring its CSV
+  tables to be byte-identical to the MATLAB reference (``tests/container/demo_parity.sh``); on ``v*`` tags it
+  publishes the images.
 
 ## MATLAB version
 
