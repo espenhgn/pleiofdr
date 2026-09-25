@@ -2,18 +2,19 @@
 
 ## Contents
 
-* [Introduction](#introduction)
-* [Quick Start](#quick-start)
-* [Install pleioFDR](#install-pleiofdr)
-* [Containers (incl. airgapped systems)](#containers-incl-airgapped-systems)
-* [Data downloads](#data-downloads)
-* [Data preparation](#data-preparation)
-* [Run pleioFDR](#run-pleiofdr)
-* [Configuration reference](#configuration-reference)
-* [pleioFDR results](#pleiofdr-results)
-* [FUMA-defined loci](#fuma-defined-loci)
-* [Development and testing](#development-and-testing)
-* [MATLAB version](#matlab-version)
+- [Contents](#contents)
+- [Introduction](#introduction)
+- [Quick Start](#quick-start)
+- [Install pleioFDR](#install-pleiofdr)
+- [Containers (incl. airgapped systems)](#containers-incl-airgapped-systems)
+- [Data downloads](#data-downloads)
+- [Data preparation](#data-preparation)
+- [Run pleioFDR](#run-pleiofdr)
+- [Configuration reference](#configuration-reference)
+- [pleioFDR results](#pleiofdr-results)
+- [FUMA-defined loci](#fuma-defined-loci)
+- [Development and testing](#development-and-testing)
+- [MATLAB version](#matlab-version)
 
 ## Introduction
 
@@ -127,6 +128,42 @@ docker run --rm --network none -u $(id -u):$(id -g) \
 **Building.** ``docker build --platform linux/amd64 -t pleiofdr .`` or ``apptainer build pleiofdr.sif Apptainer.def``
 (add ``--fakeroot`` to build without root; both need network access while building). Both install exactly the dependency versions in ``uv.lock`` on the
 same pinned ``python:3.13-slim-bookworm`` base image.
+
+**Building the Docker container imane on macOS (arm64).** First you need to install Docker Desktop (https://docs.docker.com/desktop/install/mac-install/). Then build the image using the following command:
+```{shell}
+docker buildx build -t pleiofdr .
+# running it
+docker run --rm --network none \                 
+  -v /path/to/refdata:/ref \
+  -v $PWD:/data \
+  docker.io/library/pleiofdr --config config.txt
+```
+
+**Building the Apptainer image on macOS (arm64).** First you need to install Apptainer (https://apptainer.org/docs/admin/main/installation.html#mac). The following was tested using Lima via Homebrew.
+First change permissions to allow writing to local directories:
+
+```{shell}
+limactl stop apptainer
+limactl edit apptainer
+```
+
+The "mounts" section should contain:
+
+```{yaml}
+mounts:                                     
+- location: "~"
+  writable: true  
+```
+
+Then start the Lima VM and build the image inside it and run pleioFDR with the reference and trait data bind-mounted:
+
+```{shell}
+limactl start apptainer
+limactl shell apptainer
+# inside the Lima VM, build and run the image:
+apptainer build pleiofdr-2.0.0-arm64.sif Apptainer.def
+apptainer run --containall -B /path/to/refdata:/ref -B $PWD:/data --pwd /data pleiofdr-2.0.0-arm64.sif --config config.txt
+```
 
 ## Data downloads
 
